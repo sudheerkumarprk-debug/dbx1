@@ -1,0 +1,43 @@
+#!/bin/bash
+
+TENANT_ID=""
+CLIENT_ID=""
+CLIENT_SECRET=""
+
+SOURCE_WS=""
+TARGET_WS=""
+
+SPACE_ID=""
+
+echo "Getting token..."
+
+TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
+-H "Content-Type: application/x-www-form-urlencoded" \
+-d "client_id=$CLIENT_ID" \
+-d "client_secret=$CLIENT_SECRET" \
+-d "grant_type=client_credentials" \
+-d "scope=2ff814a6-3304-4ab8-85cb-cd0e6f879c1d/.default" | jq -r '.access_token')
+
+echo "Exporting Genie Space..."
+
+curl -s -X GET "$SOURCE_WS/api/2.0/ai/genie/spaces/$SPACE_ID" \
+-H "Authorization: Bearer $TOKEN" \
+-o genie_space.json
+
+SPACE_NAME=$(jq -r '.name' genie_space.json)
+
+echo "Creating space in target workspace..."
+
+TARGET_SPACE_ID=$(curl -s -X POST "$TARGET_WS/api/2.0/ai/genie/spaces" \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d "{\"name\": \"$SPACE_NAME\"}" | jq -r '.id')
+
+echo "Importing configuration..."
+
+curl -X PATCH "$TARGET_WS/api/2.0/ai/genie/spaces/$TARGET_SPACE_ID" \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d @genie_space.json
+
+echo "Migration completed!"
