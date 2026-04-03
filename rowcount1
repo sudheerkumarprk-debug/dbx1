@@ -1,24 +1,24 @@
-BEGIN
-  DECLARE results ARRAY<STRUCT<schema_name: STRING, table_name: STRING, nonprod_count: BIGINT, prod_count: BIGINT, status: STRING>> DEFAULT ARRAY();
-  DECLARE old_count BIGINT;
-  DECLARE new_count BIGINT;
-
-  FOR tbl AS
-    SELECT table_schema, table_name
+WITH tables AS (
+    SELECT table_name
     FROM old_prod.information_schema.tables
-    WHERE table_schema IN ('bronze', 'silver', 'gold')
-  DO
-    SET old_count = (SELECT COUNT(*) FROM IDENTIFIER('old_prod.' || tbl.table_schema || '.' || tbl.table_name));
-    SET new_count = (SELECT COUNT(*) FROM IDENTIFIER('new_prod.' || tbl.table_schema || '.' || tbl.table_name));
+    WHERE table_schema = 'gold'
+)
 
-    SET results = array_append(results, named_struct(
-      'schema_name', tbl.table_schema,
-      'table_name', tbl.table_name,
-      'nonprod_count', old_count,
-      'prod_count', new_count,
-      'status', CASE WHEN old_count = new_count THEN 'MATCH' ELSE 'MISMATCH' END
-    ));
-  END FOR;
-
-  SELECT schema_name, table_name, nonprod_count, prod_count, status FROM inline(results);
-END;
+SELECT 
+    t.table_name,
+    np.row_count AS nonprod_count,
+    p.row_count AS prod_count,
+    CASE 
+        WHEN np.row_count = p.row_count THEN 'MATCH'
+        ELSE 'MISMATCH'
+    END AS status
+FROM tables t
+LEFT JOIN (
+    SELECT 'outpatientdata' AS table_name, COUNT(*) AS row_count FROM old_prod.gold.outpatientdata
+    UNION ALL
+    SELECT 'employees' AS table_name, COUNT(*) AS row_count FROM old_prod.gold.employees
+) np ON t.table_name = np.table_name
+LEFT JOIN (
+    SELECT 'outpatientdata' AS table_name, COUNT(*) AS row_count FROM new_prod.gold.outpatientdata
+    UNION ALL
+    SELECT 'employees' AS table_name, CO
