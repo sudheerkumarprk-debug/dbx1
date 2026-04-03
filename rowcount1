@@ -21,4 +21,5 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT 'outpatientdata' AS table_name, COUNT(*) AS row_count FROM new_prod.gold.outpatientdata
     UNION ALL
-    SELECT 'employees' AS table_name, CO
+    SELECT 'employees' AS table_name, COUNT(*) AS row_count FROM new_prod.gold.employees
+) p ON t.table_name = p.table_name;
